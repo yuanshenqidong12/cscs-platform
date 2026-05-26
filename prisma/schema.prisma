@@ -1,0 +1,344 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ============================================================
+// AUTH
+// ============================================================
+
+model User {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  name           String
+  passwordHash   String?
+  role           String    @default("COACH")
+  organization   String?
+  certifications String    @default("[]")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  athletes  Athlete[]
+  programs  Program[]
+  exercises Exercise[]
+  sessions  Session[]
+  accounts  Account[]
+  assessments Assessment[]
+  templates   ProgrammeTemplate[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+// ============================================================
+// ATHLETE
+// ============================================================
+
+model Athlete {
+  id            String   @id @default(cuid())
+  coachId       String
+  name          String
+  email         String?
+  phone         String?
+  dateOfBirth   String?
+  sex           String?
+  sport         String
+  discipline    String?
+  weightClass   String?
+  level         String   @default("AMATEUR")
+  trainingAge   Int?
+  height        Float?
+  weight        Float?
+  bodyFat       Float?
+  injuryHistory String?
+  goals         String?
+  status        String   @default("ACTIVE")
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  coach       User                @relation(fields: [coachId], references: [id])
+  assessments Assessment[]
+  programs    Program[]
+  completions SessionCompletion[]
+
+  @@index([coachId])
+}
+
+// ============================================================
+// ASSESSMENT
+// ============================================================
+
+model Assessment {
+  id        String   @id @default(cuid())
+  athleteId String
+  coachId   String
+  date      DateTime @default(now())
+  type      String
+  results   String   @default("{}")
+  notes     String?
+  createdAt DateTime @default(now())
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  coach   User    @relation(fields: [coachId], references: [id])
+
+  @@index([athleteId, date])
+  @@index([coachId])
+}
+
+// ============================================================
+// EXERCISE LIBRARY
+// ============================================================
+
+model Exercise {
+  id               String   @id @default(cuid())
+  name             String
+  nameEn           String?
+  description      String?
+  coachingCues     String   @default("[]")
+  commonErrors     String   @default("[]")
+  videoUrl         String?
+  imageUrls        String   @default("[]")
+  movementPattern  String
+  primaryMuscles   String   @default("[]")
+  secondaryMuscles String   @default("[]")
+  equipment        String   @default("[]")
+  category         String
+  difficulty       String   @default("INTERMEDIATE")
+  bilateral        String   @default("BILATERAL")
+  sports           String   @default("[]")
+  sessionRole      String   @default("MAIN")
+  isNscaStandard   Boolean  @default(false)
+  isApproved       Boolean  @default(true)
+  createdById      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  creator        User?                    @relation(fields: [createdById], references: [id])
+  parentVariations ExerciseVariation[]     @relation("ParentExercise")
+  childVariations  ExerciseVariation[]     @relation("VariationOf")
+  prescriptions    ExercisePrescription[]
+  templateExercises ProgrammeTemplateExercise[]
+
+  @@index([category])
+  @@index([movementPattern])
+  @@index([sessionRole])
+}
+
+model ExerciseVariation {
+  id            String @id @default(cuid())
+  parentId      String
+  variationId   String
+  variationType String
+
+  parent    Exercise @relation("ParentExercise", fields: [parentId], references: [id])
+  variation Exercise @relation("VariationOf", fields: [variationId], references: [id])
+
+  @@unique([parentId, variationId])
+}
+
+// ============================================================
+// PROGRAM (Periodization Hierarchy)
+// ============================================================
+
+model Program {
+  id                  String   @id @default(cuid())
+  coachId             String
+  athleteId           String?
+  name                String
+  sport               String?
+  goal                String
+  periodizationModel  String
+  trainingFrequency   Int?
+  startDate           String
+  endDate             String
+  status              String   @default("DRAFT")
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  coach      User        @relation(fields: [coachId], references: [id])
+  athlete    Athlete?    @relation(fields: [athleteId], references: [id])
+  mesocycles Mesocycle[]
+  templates  ProgrammeTemplate[]
+
+  @@index([coachId])
+  @@index([athleteId])
+}
+
+model Mesocycle {
+  id        String @id @default(cuid())
+  programId String
+  name      String
+  phase     String
+  goal      String?
+  order     Int
+  startDate String
+  endDate   String
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  program     Program      @relation(fields: [programId], references: [id], onDelete: Cascade)
+  microcycles Microcycle[]
+
+  @@index([programId, order])
+}
+
+model Microcycle {
+  id          String @id @default(cuid())
+  mesocycleId String
+  weekNumber  Int
+  startDate   String
+  endDate     String
+  theme       String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  mesocycle Mesocycle @relation(fields: [mesocycleId], references: [id], onDelete: Cascade)
+  sessions  Session[]
+
+  @@unique([mesocycleId, weekNumber])
+}
+
+model Session {
+  id            String   @id @default(cuid())
+  microcycleId  String
+  coachId       String
+  dayOfWeek     Int
+  date          String
+  sessionType   String
+  name          String?
+  warmupNotes   String?
+  cooldownNotes String?
+  notes         String?
+  order         Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  microcycle    Microcycle            @relation(fields: [microcycleId], references: [id], onDelete: Cascade)
+  coach         User                  @relation(fields: [coachId], references: [id])
+  prescriptions ExercisePrescription[]
+  completions   SessionCompletion[]
+
+  @@index([microcycleId])
+  @@index([coachId, date])
+}
+
+model ExercisePrescription {
+  id         String   @id @default(cuid())
+  sessionId  String
+  exerciseId String
+  order      Int
+  sets       Int?
+  reps       String?
+  loadType   String?
+  loadValue  Float?
+  restSeconds Int?
+  tempo      String?
+  rpe        Float?
+  rir        Int?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  session          Session            @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  exercise         Exercise           @relation(fields: [exerciseId], references: [id])
+  loadPrescriptions LoadPrescription[]
+
+  @@index([sessionId, order])
+}
+
+model LoadPrescription {
+  id             String  @id @default(cuid())
+  prescriptionId String
+  weekNumber     Int
+  loadType       String
+  loadValue      Float
+
+  prescription ExercisePrescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([prescriptionId, weekNumber])
+}
+
+// ============================================================
+// SESSION TRACKING
+// ============================================================
+
+model SessionCompletion {
+  id          String   @id @default(cuid())
+  sessionId   String
+  athleteId   String
+  date        DateTime @default(now())
+  rpeSession  Float?
+  durationMin Int?
+  notes       String?
+
+  session Session @relation(fields: [sessionId], references: [id])
+  athlete Athlete @relation(fields: [athleteId], references: [id])
+
+  @@unique([sessionId, athleteId, date])
+}
+
+// ============================================================
+// PROGRAM TEMPLATES
+// ============================================================
+
+model ProgrammeTemplate {
+  id                  String   @id @default(cuid())
+  name                String
+  description         String?
+  sport               String?
+  goal                String
+  periodizationModel  String
+  durationWeeks       Int
+  sessionsPerWeek     Int
+  isPublic            Boolean  @default(false)
+  createdById         String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  creator   User                        @relation(fields: [createdById], references: [id])
+  exercises ProgrammeTemplateExercise[]
+  programs  Program[]
+}
+
+model ProgrammeTemplateExercise {
+  id               String  @id @default(cuid())
+  templateId       String
+  exerciseId       String
+  phase            String
+  dayPattern       String?
+  order            Int
+  sets             String?
+  reps             String?
+  loadProgression  String?
+  restSeconds      Int?
+  notes            String?
+
+  template ProgrammeTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  exercise Exercise          @relation(fields: [exerciseId], references: [id])
+
+  @@index([templateId, phase])
+}
