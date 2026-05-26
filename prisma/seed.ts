@@ -2,12 +2,8 @@ import "dotenv/config"
 import { PrismaClient } from "../src/generated/prisma/client"
 import { PrismaLibSql } from "@prisma/adapter-libsql"
 import bcrypt from "bcryptjs"
-import path from "path"
 
-process.env.DATABASE_URL = process.env.DATABASE_URL ?? "file:dev.db"
-
-const dbPath = path.resolve(process.cwd(), "dev.db")
-const adapter = new PrismaLibSql({ url: `file:${dbPath}` })
+const adapter = new PrismaLibSql({ url: process.env["DATABASE_URL"]! })
 const prisma = new PrismaClient({ adapter })
 
 // 辅助函数
