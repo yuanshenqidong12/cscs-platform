@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,7 +30,7 @@ const MODELS = [
 
 interface Athlete { id: string; name: string; sport: string }
 
-export default function NewProgramWizard() {
+function NewProgramWizard() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [step, setStep] = useState(1)
@@ -317,5 +317,13 @@ export default function NewProgramWizard() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<div className="max-w-3xl mx-auto p-8 text-zinc-500">加载中...</div>}>
+      <NewProgramWizard />
+    </Suspense>
   )
 }
