@@ -1,18 +1,26 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (searchParams.get("registered")) {
+      setSuccess("注册成功！请登录")
+    }
+  }, [searchParams])
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -52,7 +60,8 @@ export default function LoginPage() {
               <Label htmlFor="password">密码</Label>
               <Input id="password" name="password" type="password" required />
             </div>
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {success && <p className="text-sm text-green-600 bg-green-50 p-2 rounded">{success}</p>}
+            {error && <p className="text-sm text-red-500 bg-red-50 p-2 rounded">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "登录中..." : "登 录"}
             </Button>
@@ -69,5 +78,13 @@ export default function LoginPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-zinc-500">加载中...</div>}>
+      <LoginForm />
+    </Suspense>
   )
 }
